@@ -7,7 +7,7 @@ local max_height_units = 255
 local meters_per_degree = 30336.3
 local meters_per_height_unit = 77.7246
 
-if minetest and minetest.request_insecure_environment then
+if minetest.request_insecure_environment then
    ie = minetest.request_insecure_environment()
 else
    ie = _G
@@ -15,7 +15,7 @@ end
 
 local source = ie.debug.getinfo(1).source:sub(2)
 -- Detect windows via backslashes in paths
-local mypath = "." -- minetest.get_modpath(minetest.get_current_modname())
+local mypath = minetest.get_modpath(minetest.get_current_modname())
 local is_windows = (nil ~= string.find(ie.package.path..ie.package.cpath..source..mypath, "%\\%?"))
 local path_separator
 if is_windows then
