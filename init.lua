@@ -32,8 +32,10 @@ local meters_per_degree = 30336.3
 local meters_per_height_unit = 77.7246
 
 local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
-local max_height = 0
-local min_height = 0
+local max_height_nodes = max_height_units * nodes_per_height_unit
+local offsets = {0,0}
+local farside_below = -5000
+local thickness = 500
 
 local chunks = {}
 local data_per_degree = 64
@@ -93,29 +95,36 @@ local function get_interpolated_data(longitude,latitude)
 end
 
 local function height_by_longitude_latitude(longitude, latitude)
-	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit + min_height
+	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit
 end
 
-local function get_longitude_latitude(x,z)
+local function get_longitude_latitude(x,z,farside)
 	local x = x * meters_per_land_node / radius
 	local z = z * meters_per_land_node / radius
 	local xz2 = x*x + z*z
 	if xz2 > 1 then
 		return nil
 	end
-	return math.atan2(x,math.sqrt(1-xz2)), math.asin(z)
+	local longitude = math.atan2(x,math.sqrt(1-xz2))
+	if farside then
+		longitude = longitude + math.pi
+		if longitude > math.pi then
+			longitude = longitude - 2 * math.pi
+		end
+	end
+	return longitude, math.asin(z)
 end
 
 
-local function height(x,z)
+local function height(x,z,farside)
 	-- assume z goes north and x goes east
-        local longitude,latitude = get_longitude_latitude(x,z)
-        if not longitude then return nil end
+    local longitude,latitude = get_longitude_latitude(x,z,farside)
+    if not longitude then return nil end
 	return height_by_longitude_latitude(longitude, latitude)
 end
 
-min_height = -height(0,0)
-max_height = max_height_units * nodes_per_height_unit + min_height
+offsets[0] = -height(0,0)
+offsets[1] = farside_below - max_height_nodes
 
 minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
 
@@ -126,25 +135,36 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local data = vm:get_data()
 	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
 	
-	if minp.y > max_height then
+	if minp.y > max_height_nodes then
 		for pos in area:iterp(minp,maxp) do
 			data[pos] = c_air
 		end
 	else
+		local offset
+		local farside
+		if minp.y <= farside_below then
+			-- we assume the chunk we're generating never spans between far to nearside
+			offset = offsets[1]
+			farside = true
+		else
+			offset = offsets[0]
+			farside = false
+		end
 		for x = minp.x,maxp.x do
 			for z = minp.z,maxp.z do
-				local f = height(x,z)
+				local f = height(x,z,farside)
 				if not f then
     				for y = minp.y,maxp.y do
     					data[area:index(x, y, z)] = c_air
     				end
 				else
-    				f = math.floor(f)
-    				for y = minp.y,f do
-    					data[area:index(x, y, z)] = c_stone
-    				end
-    				for y = f+1,maxp.y do
-    					data[area:index(x, y, z)] = c_air
+    				f = math.floor(f + offset)					
+    				for y = minp.y,maxp.y do
+						if y < offset - thickness or y > f then 
+							data[area:index(x, y, z)] = c_air
+						elseif y <= f then
+							data[area:index(x, y, z)] = c_stone
+						end
     				end
 				end
 			end
@@ -186,26 +206,34 @@ minetest.register_chatcommand("goto",
 	description="Go to location on moon. Negative latitudes are south and negative longitudes are west.",
 	func = function(name, args)
 		if args ~= "" then
+			local side = 0
 			local latitude, longitude = args:match("^([-0-9.]+) ([-0-9.]+)")
 			if longitude then
 				latitude = tonumber(latitude) * math.pi / 180
-				longitude = tonumber(longitude) * math.pi / 180
+				longitude = tonumber(longitude)
+				if longitude < -90 or longitude > 90 then
+					side = 1
+				end
+				longitude = longitude * math.pi / 180
 			else
 				latitude,longitude = find_feature(args)
 				if not latitude then
 					minetest.chat_send_player(name, "Cannot find crater "..args)
 					return
 				end
+				if longitude < half_pi or longitude > half_pi then
+					side = 1
+				end
 			end
-			if latitude < -math.pi / 2 or latitude > math.pi / 2 or longitude < -math.pi /2 or longitude > math.pi / 2 then
-                                minetest.chat_send_player(name, "Not on near side")
+			if latitude < -half_pi or latitude > half_pi or longitude < -math.pi or longitude > math.pi then
+                minetest.chat_send_player(name, "Out of range.")
 				return
 			end
 			local z = math.sin(latitude) * radius / meters_per_land_node
 			local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
-			local h = height_by_longitude_latitude(longitude,latitude)
-			minetest.log("action", "jumping to "..x.." "..h.." "..z)
-		        minetest.get_player_by_name(name):setpos({x=x,y=h,z=z})
+			local y = height_by_longitude_latitude(longitude,latitude) + offsets[side]			
+			minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		    minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
 		end
 	end})
 
@@ -214,6 +242,11 @@ minetest.register_chatcommand("where",
 	description="Get latitude and longitude of current position on moon.",
 	func = function(name, args)
 	        local pos = minetest.get_player_by_name(name):getpos()
-                local longitude,latitude = get_longitude_latitude(pos.x, pos.z)
+			local farside = pos.y < farside_below + thickness				
+            local longitude,latitude = get_longitude_latitude(pos.x, pos.z, farside)
+			if longitude then
                 minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
+			else
+                minetest.chat_send_player(name, "Out of range.")
+			end
 	end})
