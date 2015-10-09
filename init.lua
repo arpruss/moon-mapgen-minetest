@@ -1,18 +1,5 @@
-local central_latitude_degrees = 0
-local central_longitude_degrees = 0
-local meters_per_land_node = 500 
-local exaggerate_height_factor = 10
-local meters_per_vertical_node = meters_per_land_node / exaggerate_height_factor
-
-
-local max_height_units = 255
-local radius = 10917000 / 2
-local meters_per_degree = 30336.3
-local meters_per_height_unit = 77.7246
-
-local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
-local max_height = 0
-local min_height = 0
+local meters_per_land_node = 500
+local height_multiplier = 5
 
 if minetest.request_insecure_environment then
    ie = minetest.request_insecure_environment()
@@ -31,6 +18,22 @@ else
    path_separator = "/"
 end
 mypath = mypath .. path_separator
+
+local settings = Settings(mypath .. "settings.conf")
+local x = settings:get("land_node_meters")
+if x then meters_per_land_node = tonumber(x) end
+x = settings:get("height_multiplier")
+if x then height_multiplier = tonumber(x) end
+
+local meters_per_vertical_node = meters_per_land_node / height_multiplier
+local max_height_units = 255
+local radius = 10917000 / 2
+local meters_per_degree = 30336.3
+local meters_per_height_unit = 77.7246
+
+local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
+local max_height = 0
+local min_height = 0
 
 local chunks = {}
 local data_per_degree = 64
@@ -93,23 +96,28 @@ local function height_by_longitude_latitude(longitude, latitude)
 	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit + min_height
 end
 
-local function height(x,z)
-	-- assume z goes north and x goes east
+local function get_longitude_latitude(x,z)
 	local x = x * meters_per_land_node / radius
 	local z = z * meters_per_land_node / radius
 	local xz2 = x*x + z*z
 	if xz2 > 1 then
 		return nil
 	end
-	-- square of distance from axis is x^2+y^2 = x^2 + (1-x^2-z^2) = 1-z^2
-	local longitude = math.atan2(x,math.sqrt(1-xz2))
-	local latitude = math.asin(z)
+	return math.atan2(x,math.sqrt(1-xz2)), math.asin(z)
+end
+
+
+local function height(x,z)
+	-- assume z goes north and x goes east
+        local longitude,latitude = get_longitude_latitude(x,z)
+        if not longitude then return nil end
 	return height_by_longitude_latitude(longitude, latitude)
 end
 
 min_height = -height(0,0)
+max_height = max_height_units * nodes_per_height_unit + min_height
 
-minetest.set_mapgen_params({mgname="singlenode", water_level = -10000, flags="nolight", flagmask="nolight"})
+minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
 
 minetest.register_on_generated(function(minp, maxp, seed)
 	local c_air = minetest.get_content_id("air")
@@ -122,16 +130,11 @@ minetest.register_on_generated(function(minp, maxp, seed)
 		for pos in area:iterp(minp,maxp) do
 			data[pos] = c_air
 		end
-	elseif maxp.y < min_height then
-		for pos in area:iterp(minp,maxp) do
-			data[pos] = c_stone
-		end
 	else
 		for x = minp.x,maxp.x do
 			for z = minp.z,maxp.z do
 				local f = height(x,z)
-				if not f then 
-					height_cache[x][z] = minp.y
+				if not f then
     				for y = minp.y,maxp.y do
     					data[area:index(x, y, z)] = c_air
     				end
@@ -180,7 +183,7 @@ end
 
 minetest.register_chatcommand("goto",
 	{params="<latitude> <longitude>  or  <crater name>" ,
-	description="Go to latitude/longitude.",
+	description="Go to location on moon. Negative latitudes are south and negative longitudes are west.",
 	func = function(name, args)
 		if args ~= "" then
 			local latitude, longitude = args:match("^([-0-9.]+) ([-0-9.]+)")
@@ -189,7 +192,7 @@ minetest.register_chatcommand("goto",
 				longitude = tonumber(longitude) * math.pi / 180
 			else
 				latitude,longitude = find_feature(args)
-				if not latitude or not longitude then
+				if not latitude then
 					minetest.chat_send_player(name, "Cannot find crater "..args)
 					return
 				end
@@ -204,4 +207,13 @@ minetest.register_chatcommand("goto",
 			minetest.log("action", "jumping to "..x.." "..h.." "..z)
 		        minetest.get_player_by_name(name):setpos({x=x,y=h,z=z})
 		end
+	end})
+
+minetest.register_chatcommand("where",
+	{params="" ,
+	description="Get latitude and longitude of current position on moon.",
+	func = function(name, args)
+	        local pos = minetest.get_player_by_name(name):getpos()
+                local longitude,latitude = get_longitude_latitude(pos.x, pos.z)
+                minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
 	end})
