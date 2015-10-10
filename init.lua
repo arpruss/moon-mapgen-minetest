@@ -1,5 +1,6 @@
 local meters_per_land_node = 500
 local height_multiplier = 5
+local gravity = 0.165
 
 if minetest.request_insecure_environment then
    ie = minetest.request_insecure_environment()
@@ -24,6 +25,8 @@ local x = settings:get("land_node_meters")
 if x then meters_per_land_node = tonumber(x) end
 x = settings:get("height_multiplier")
 if x then height_multiplier = tonumber(x) end
+x = settings:get("gravity")
+if x then gravity = tonumber(x) end
 
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
@@ -250,3 +253,9 @@ minetest.register_chatcommand("where",
                 minetest.chat_send_player(name, "Out of range.")
 			end
 	end})
+
+minetest.register_on_joinplayer(function(player)
+	local override = player:get_physics_override()
+	override['gravity'] = gravity
+	player:set_physics_override(override)
+end)
