@@ -1,6 +1,7 @@
 local meters_per_land_node = 500
 local height_multiplier = 5
 local gravity = 0.165
+local black_sky = true
 
 if minetest.request_insecure_environment then
    ie = minetest.request_insecure_environment()
@@ -27,6 +28,10 @@ x = settings:get("height_multiplier")
 if x then height_multiplier = tonumber(x) end
 x = settings:get("gravity")
 if x then gravity = tonumber(x) end
+x = settings:get("sky")
+if x then
+    black_sky = (x == 'black')
+end
 
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
@@ -258,4 +263,5 @@ minetest.register_on_joinplayer(function(player)
 	local override = player:get_physics_override()
 	override['gravity'] = gravity
 	player:set_physics_override(override)
+	player:set_sky({r=0,g=0,b=0},'plain')
 end)
