@@ -33,6 +33,24 @@ if x then
     sky = x
 end
 
+local need_update = false
+local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
+local x = world_settings:get("land_node_meters")
+if x then 
+	meters_per_land_node=tonumber(x) 
+else
+	world_settings:set("land_node_meters", tostring(meters_per_land_node))
+	need_update = true
+end
+local x = world_settings:get("height_multiplier")
+if x then 
+	height_multiplier=tonumber(x) 
+else
+	world_settings:set("height_multiplier", tostring(height_multiplier))
+	need_update = true
+end
+world_settings:write()
+
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
 local radius = 10917000 / 2
@@ -266,8 +284,8 @@ minetest.register_on_joinplayer(function(player)
 	 -- texture order: up,down,east,west,south,north
 	if sky == "black" then
 		player:set_sky({r=0,g=0,b=0},'plain')
-	else if sky == "fancy" then
-		player:set_sky({r=0,g=0,b=0},'skybox'),
-			{'up.png','down.png','east.png','west.png','south.png','north.png'})
+	elseif sky == "fancy" then
+		player:set_sky({r=0,g=0,b=0},'skybox',
+			{'sky_pos_y.png','sky_neg_y.png','sky_neg_z.png','sky_pos_z.png','sky_neg_x.png','sky_pos_x.png'})
 	end
 end)
