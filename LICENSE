@@ -1,3 +1,21 @@
+LICENSE FOR SKY TEXTURES ONLY
+
+Copyright on the "SpaceEngine" software belongs to Vladimir Romanyuk (the Author).
+The Author reserves all other rights in the Software not expressly granted to you
+here. Subject to your compliance with these terms and conditions, the Author
+grants you a royalty-free, non-exclusive license to use, copy and distribute the
+Software, and any content created with the Software (screenshots, video, textures,
+scripts), without fee, for personal, educational, charity and other non-commercial
+use. If you want to use the Software or content created with the Software for
+commercial purposes, please contact the Author at astrodigital@yandex.ru.
+
+
+If you want, you can set the sky to "black" or "blue" in settings.conf and the
+redistribute without the textures in the textures folder.
+
+
+LICENSE FOR CODE
+
 The MIT License (MIT)
 
 Code copyright (c) 2015 Alexander R. Pruss
