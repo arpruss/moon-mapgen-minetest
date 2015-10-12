@@ -81,8 +81,8 @@ local function get_chunk(chunk_number)
 		return chunk
 	end
 
-	local f = assert(ie.io.open(mypath .. "terrain" .. path_separator .. chunk_number .. ".dat", "rb"))
-	chunk = f:read("*all")
+	local f = assert(ie.io.open(mypath .. "terrain" .. path_separator .. chunk_number .. ".dat.zlib", "rb"))
+	chunk = minetest.decompress(f:read("*all"), 'inflate')
 	f:close()
 	chunks[chunk_number] = chunk
 	return chunk
