@@ -257,7 +257,7 @@ minetest.register_chatcommand("goto",
 			end
 			local z = math.sin(latitude) * radius / meters_per_land_node
 			local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
-			local y = height_by_longitude_latitude(longitude,latitude) + offsets[side]			
+			local y = height(x,z,side == 1) + offsets[side]			
 			minetest.log("action", "jumping to "..x.." "..y.." "..z)
 		    minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
 		end
