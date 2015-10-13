@@ -1,5 +1,5 @@
-local meters_per_land_node = 500
-local height_multiplier = 5
+local meters_per_land_node = 150
+local height_multiplier = 1
 local gravity = 0.165
 local sky = "black"
 local projection_mode = "orthographic"
@@ -64,7 +64,8 @@ local projection
 
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
-local radius = 10917000 / 2
+local inner_radius = 1737400
+local radius = 1738000
 local meters_per_degree = 30336.3
 local meters_per_height_unit = 77.7246
 
