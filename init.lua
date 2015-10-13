@@ -160,7 +160,7 @@ local orthographic = {
 
 	get_xz_from_longitude_latitude = function(longitude, latitude)
 		local z = math.sin(latitude) / land_normalize
-		if longitude < math.pi or longitude > math.pi then
+		if longitude < -half_pi or longitude > half_pi then
 			longitude = longitude - math.pi
 		end
 		local x = math.cos(latitude) * math.sin(longitude) / land_normalize
@@ -176,14 +176,57 @@ local equaldistance = {
 		if xz2 > 1 then
 			return nil
 		end
-		local y = math.sqrt(1-xz2)
-		local phi = math.asin(xz2)
-		local theta = 0 -- FIX
+
+		local xz = math.sqrt(xz2)
+		
+		if xz < 1e-8 then
+			if farside then
+				return 0,math.pi
+			else
+				return 0,0
+			end
+		end
+
+		local adjustment = math.sin(xz*half_pi)/xz
+		x = x * adjustment
+		z = z * adjustment
+		local y = math.sqrt(1-x*x-z*z)
+		local longitude = math.atan2(x,y)
+		if farside then
+			longitude = longitude + math.pi
+			if longitude > math.pi then
+				longitude = longitude - 2 * math.pi
+			end
+		end
+
+		return longitude, math.asin(z)
+	end,
+	
+	get_xz_from_longitude_latitude = function(longitude, latitude)
+		local z = math.sin(latitude)
+		if longitude < -half_pi or longitude > half_pi then
+			longitude = longitude - math.pi
+		end
+		local x = math.cos(latitude) * math.sin(longitude)
+		
+		local xz = math.sqrt(x*x + z*z)
+		
+		if xz < 1e-8 then
+			return x/land_normalize,z/land_normalize
+		end
+		
+		local adjustment = math.asin(xz)/half_pi/xz
+		
+		return x * adjustment / land_normalize, z * adjustment / land_normalize
 	end
+
 }
 
 -- TODO: add equal distance projection
 local projection = orthographic
+if projection_mode == "equaldistance" then
+	projection = equaldistance
+end
 
 local function height(x,z,farside)
 	-- assume z goes north and x goes east
@@ -290,7 +333,7 @@ minetest.register_chatcommand("goto",
 					minetest.chat_send_player(name, "Cannot find crater "..args)
 					return
 				end
-				if longitude < half_pi or longitude > half_pi then
+				if longitude < -half_pi or longitude > half_pi then
 					side = 1
 				end
 			end
