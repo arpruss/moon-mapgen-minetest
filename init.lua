@@ -2,6 +2,7 @@ local meters_per_land_node = 500
 local height_multiplier = 5
 local gravity = 0.165
 local sky = "black"
+local projection_mode = "orthographic"
 
 if minetest.request_insecure_environment then
    ie = minetest.request_insecure_environment()
@@ -29,24 +30,31 @@ if x then height_multiplier = tonumber(x) end
 x = settings:get("gravity")
 if x then gravity = tonumber(x) end
 x = settings:get("sky")
-if x then
-    sky = x
-end
+if x then sky = x end
+x = settings:get("projection")
+if x then projection_mode = x end
 
 local need_update = false
 local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
 local x = world_settings:get("land_node_meters")
-if x then 
-	meters_per_land_node=tonumber(x) 
+if x then
+	meters_per_land_node=tonumber(x)
 else
 	world_settings:set("land_node_meters", tostring(meters_per_land_node))
 	need_update = true
 end
 local x = world_settings:get("height_multiplier")
-if x then 
-	height_multiplier=tonumber(x) 
+if x then
+	height_multiplier=tonumber(x)
 else
 	world_settings:set("height_multiplier", tostring(height_multiplier))
+	need_update = true
+end
+local x = world_settings:get("projection")
+if x then
+	projection_mode = x
+else
+	world_settings:set("projection_mode", projection_mode)
 	need_update = true
 end
 world_settings:write()
@@ -124,27 +132,37 @@ local function height_by_longitude_latitude(longitude, latitude)
 	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit
 end
 
-local function get_longitude_latitude(x,z,farside)
-	local x = x * meters_per_land_node / radius
-	local z = z * meters_per_land_node / radius
-	local xz2 = x*x + z*z
-	if xz2 > 1 then
-		return nil
-	end
-	local longitude = math.atan2(x,math.sqrt(1-xz2))
-	if farside then
-		longitude = longitude + math.pi
-		if longitude > math.pi then
-			longitude = longitude - 2 * math.pi
+local orthographic = {
+	get_longitude_latitude = function(x,z,farside)
+		local x = x * meters_per_land_node / radius
+		local z = z * meters_per_land_node / radius
+		local xz2 = x*x + z*z
+		if xz2 > 1 then
+			return nil
 		end
-	end
-	return longitude, math.asin(z)
-end
+		local longitude = math.atan2(x,math.sqrt(1-xz2))
+		if farside then
+			longitude = longitude + math.pi
+			if longitude > math.pi then
+				longitude = longitude - 2 * math.pi
+			end
+		end
+		return longitude, math.asin(z)
+	end,
 
+	get_xz = function(latitude, longitude)
+		local z = math.sin(latitude) * radius / meters_per_land_node
+		local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
+		return x,z*z
+	end
+}
+
+-- TODO: add equal distance projection
+local projection = orthographic
 
 local function height(x,z,farside)
 	-- assume z goes north and x goes east
-    local longitude,latitude = get_longitude_latitude(x,z,farside)
+    local longitude,latitude = projection.get_longitude_latitude(x,z,farside)
     if not longitude then return nil end
 	return height_by_longitude_latitude(longitude, latitude)
 end
@@ -160,7 +178,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
 	local data = vm:get_data()
 	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
-	
+
 	if minp.y > max_height_nodes then
 		for pos in area:iterp(minp,maxp) do
 			data[pos] = c_air
@@ -255,8 +273,7 @@ minetest.register_chatcommand("goto",
                 minetest.chat_send_player(name, "Out of range.")
 				return
 			end
-			local z = math.sin(latitude) * radius / meters_per_land_node
-			local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
+			local x,z = projection.get_xz(longitude,latitude)
 			local y = height(x,z,side == 1) + offsets[side]			
 			minetest.log("action", "jumping to "..x.." "..y.." "..z)
 		    minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
@@ -269,7 +286,7 @@ minetest.register_chatcommand("where",
 	func = function(name, args)
 	        local pos = minetest.get_player_by_name(name):getpos()
 			local farside = pos.y < farside_below + thickness				
-            local longitude,latitude = get_longitude_latitude(pos.x, pos.z, farside)
+            local longitude,latitude = projection.get_longitude_latitude(pos.x, pos.z, farside)
 			if longitude then
                 minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
 			else
