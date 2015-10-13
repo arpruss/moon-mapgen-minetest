@@ -64,15 +64,18 @@ local projection
 
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
-local inner_radius = 1737400
 local radius = 1738000
 local meters_per_degree = 30336.3
 local meters_per_height_unit = 77.7246
-
+local inner_radius = 1737400
 
 local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
 local max_height_nodes = max_height_units * nodes_per_height_unit
 local land_normalize = meters_per_land_node / radius
+
+local inner_radius_nodes = math.floor(inner_radius / meters_per_land_node)
+local outer_radius_nodes = math.ceil(inner_radius_nodes + max_height_nodes)
+
 local offsets = {0,0}
 local farside_below = -5000
 local thickness = 500
@@ -271,12 +274,45 @@ local function generate_projected(minp, maxp, data, area, vacuum, stone)
 	end
 end
 
+local function in_moon(x,y,z)
+	local r = math.sqrt(x*x, y*y, z*z)
+	if r < inner_radius_nodes then
+		return false
+	elseif outer_radius_nodes < r then
+		return true
+	end
+	return false -- not fully implemented
+end
+
+local function generate_spherical(minp, maxp, data, area, vacuum, stone)
+	local block_radius = vector.distance(minp, maxp) / 2
+	local r = vector.length(vector.multiply(vector.add(minp,maxp), 0.5))
+
+	if r + block_radius < inner_radius_nodes then
+		for pos in area:iterp(minp,maxp) do
+			data[pos] = stone
+		end
+	elseif outer_radius_nodes < r - block_radius then
+		for pos in area:iterp(minp,maxp) do
+			data[pos] = vacuum
+		end
+	else
+		for x,y,z in area:iter(minp,maxp) do
+			if in_moon(x,y,z) then
+				data[pos] = stone
+			else
+				data[pos] = vacuum
+			end
+		end
+	end		
+end
+
 minetest.log("action", "Moon projection mode: "..projection_mode)
 
 local generate
 	
 if projection_mode == "sphere" then
-	generate = nil -- not implemented yet
+	generate = generate_spherical -- not fully implemented yet
 else
 	if projection_mode == "equaldistance" then
 		projection = equaldistance
