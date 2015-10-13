@@ -68,6 +68,7 @@ local meters_per_height_unit = 77.7246
 
 local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
 local max_height_nodes = max_height_units * nodes_per_height_unit
+local land_normalize = meters_per_land_node / radius
 local offsets = {0,0}
 local farside_below = -5000
 local thickness = 500
@@ -135,13 +136,19 @@ end
 
 local orthographic = {
 	get_longitude_latitude = function(x,z,farside)
-		local x = x * meters_per_land_node / radius
-		local z = z * meters_per_land_node / radius
+		local x = x * land_normalize
+		local z = z * land_normalize
 		local xz2 = x*x + z*z
 		if xz2 > 1 then
 			return nil
 		end
-		local longitude = math.atan2(x,math.sqrt(1-xz2))
+		local y = math.sqrt(1-xz2)
+		local longitude
+		if y < 1e-8 and math.abs(x) < 1e-8 then
+			longitude = 0
+		else
+			longitude = math.atan2(x,y)
+		end
 		if farside then
 			longitude = longitude + math.pi
 			if longitude > math.pi then
@@ -152,9 +159,26 @@ local orthographic = {
 	end,
 
 	get_xz_from_longitude_latitude = function(longitude, latitude)
-		local z = math.sin(latitude) * radius / meters_per_land_node
-		local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
+		local z = math.sin(latitude) / land_normalize
+		if longitude < math.pi or longitude > math.pi then
+			longitude = longitude - math.pi
+		end
+		local x = math.cos(latitude) * math.sin(longitude) / land_normalize
 		return x,z
+	end
+}
+
+local equaldistance = {
+	get_longitude_latitude = function(x,z,farside)
+		local x = x * land_normalize
+		local z = z * land_normalize
+		local xz2 = x*x + z*z
+		if xz2 > 1 then
+			return nil
+		end
+		local y = math.sqrt(1-xz2)
+		local phi = math.asin(xz2)
+		local theta = 0 -- FIX
 	end
 }
 
