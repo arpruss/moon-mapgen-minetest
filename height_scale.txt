@@ -1,2 +1,0 @@
-64 samples per degree
-77.7246m
