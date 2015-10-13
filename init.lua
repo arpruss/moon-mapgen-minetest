@@ -142,7 +142,7 @@ local function height_by_longitude_latitude(longitude, latitude)
 end
 
 local orthographic = {
-	get_longitude_latitude = function(x,z,farside)
+	get_longitude_latitude = function(x,y0,z,farside)
 		local x = x * land_normalize
 		local z = z * land_normalize
 		local xz2 = x*x + z*z
@@ -172,11 +172,67 @@ local orthographic = {
 		end
 		local x = math.cos(latitude) * math.sin(longitude) / land_normalize
 		return x,z
+	end,
+
+	goto_latitude_longitude_degrees = function(name, latitude, longitude)
+		local side = 0
+		latitude = tonumber(latitude) * math.pi / 180
+		longitude = tonumber(longitude)
+		if longitude < -90 or longitude > 90 then
+			side = 1
+		end
+		longitude = longitude * math.pi / 180
+		if latitude < -half_pi or latitude > half_pi or longitude < -math.pi or longitude > math.pi then
+			minetest.chat_send_player(name, "Out of range.")
+			return
+		end
+		local x,z = projection.get_xz_from_longitude_latitude(longitude,latitude)
+		local y = height_by_longitude_latitude(longitude, latitude) + offsets[side]			
+		minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
+	end,
+	
+	generate = function(minp, maxp, data, area, vacuum, stone)
+		if minp.y > max_height_nodes then
+			for pos in area:iterp(minp,maxp) do
+				data[pos] = vacuum
+			end
+		else
+			local offset, farside
+			if minp.y <= farside_below then
+				-- we assume the chunk we're generating never spans between far to nearside
+				offset = offsets[1]
+				farside = true
+			else
+				offset = offsets[0]
+				farside = false
+			end
+			for x = minp.x,maxp.x do
+				for z = minp.z,maxp.z do
+					local longitude,latitude = projection.get_longitude_latitude(x,0,z,farside)
+					if not longitude then
+						for y = minp.y,maxp.y do
+							data[area:index(x, y, z)] = vacuum
+						end
+					else
+						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
+						for y = minp.y,maxp.y do
+							if y < offset - thickness or y > f then 
+								data[area:index(x, y, z)] = vacuum
+							elseif y <= f then
+								data[area:index(x, y, z)] = stone
+							end
+						end
+					end
+				end
+			end
+		end
 	end
+
 }
 
 local equaldistance = {
-	get_longitude_latitude = function(x,z,farside)
+	get_longitude_latitude = function(x,y0,z,farside)
 		local x = x * land_normalize
 		local z = z * land_normalize
 		local xz2 = x*x + z*z
@@ -225,114 +281,73 @@ local equaldistance = {
 		local adjustment = math.asin(xz)/half_pi/xz
 		
 		return x * adjustment / land_normalize, z * adjustment / land_normalize
-	end
+	end,
 
+	goto_latitude_longitude_degrees = orthographic.goto_latitude_longitude_degrees,
+	
+	generate = orthographic.generate
 }
 
-local function height(x,z,farside)
-	-- assume z goes north and x goes east
-    local longitude,latitude = projection.get_longitude_latitude(x,z,farside)
-    if not longitude then return nil end
-	return height_by_longitude_latitude(longitude, latitude)
-end
-
-local function generate_projected(minp, maxp, data, area, vacuum, stone)
-	if minp.y > max_height_nodes then
-		for pos in area:iterp(minp,maxp) do
-			data[pos] = vacuum
+local sphere = {
+	in_moon = function(x,y,z)
+		local r = math.sqrt(x*x+y*y+z*z)
+		
+		if r < inner_radius_nodes then
+			return true
+		elseif outer_radius_nodes < r then
+			return false
 		end
-	else
-		local offset
-		local farside
-		if minp.y <= farside_below then
-			-- we assume the chunk we're generating never spans between far to nearside
-			offset = offsets[1]
-			farside = true
-		else
-			offset = offsets[0]
-			farside = false
-		end
-		for x = minp.x,maxp.x do
-			for z = minp.z,maxp.z do
-				local f = height(x,z,farside)
-				if not f then
-    				for y = minp.y,maxp.y do
-    					data[area:index(x, y, z)] = vacuum
-    				end
-				else
-    				f = math.floor(f + offset)					
-    				for y = minp.y,maxp.y do
-						if y < offset - thickness or y > f then 
-							data[area:index(x, y, z)] = vacuum
-						elseif y <= f then
-							data[area:index(x, y, z)] = stone
-						end
-    				end
-				end
+		
+		x = x / r
+		y = y / r
+		z = z / r
+		
+		local latitude = math.asin(z)
+		local longitude = math.atan2(x,y)
+		if y < 0 then
+			longitude = longitude + math.pi
+			if longitude > math.pi then
+				longitude = longitude - 2 * math.pi
 			end
 		end
-	end
-end
 
-local function in_moon(x,y,z)
-	local r = math.sqrt(x*x+y*y+z*z)
-	
-	if r < inner_radius_nodes then
-		return true
-	elseif outer_radius_nodes < r then
-		return false
-	end
-	
-	x = x / r
-	y = y / r
-	z = z / r
-	
-	local latitude = math.asin(z)
-	local longitude = math.atan2(x,y)
-	if y < 0 then
-		longitude = longitude + math.pi
-		if longitude > math.pi then
-			longitude = longitude - 2 * math.pi
-		end
-	end
-
-	return r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
-end
+		return r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
+	end,
 
 
-local function generate_spherical(minp, maxp, data, area, vacuum, stone)
-	local block_radius = vector.distance(minp, maxp) / 2
-	local r = vector.length(vector.multiply(vector.add(minp,maxp), 0.5))
+	generate = function(minp, maxp, data, area, vacuum, stone)
+		local block_radius = vector.distance(minp, maxp) / 2
+		local r = vector.length(vector.multiply(vector.add(minp,maxp), 0.5))
 
-	if r + block_radius < inner_radius_nodes then
-		for pos in area:iterp(minp,maxp) do
-			data[pos] = stone
-		end
-	elseif outer_radius_nodes < r - block_radius then
-		for pos in area:iterp(minp,maxp) do
-			data[pos] = vacuum
-		end
-	else
-		for y = minp.y,maxp.y do
-			for x = minp.x,maxp.x do
-				for z = minp.z,maxp.z do
-					if in_moon(x,y,z) then
-						data[area:index(x,y,z)] = stone
-					else
-						data[area:index(x,y,z)] = vacuum
+		if r + block_radius < inner_radius_nodes then
+			for pos in area:iterp(minp,maxp) do
+				data[pos] = stone
+			end
+		elseif outer_radius_nodes < r - block_radius then
+			for pos in area:iterp(minp,maxp) do
+				data[pos] = vacuum
+			end
+		else
+			for y = minp.y,maxp.y do
+				for x = minp.x,maxp.x do
+					for z = minp.z,maxp.z do
+						if sphere.in_moon(x,y,z) then
+							data[area:index(x,y,z)] = stone
+						else
+							data[area:index(x,y,z)] = vacuum
+						end
 					end
 				end
 			end
-		end
-	end		
-end
+		end		
+	end
+}
+
 
 minetest.log("action", "Moon projection mode: "..projection_mode)
 
-local generate
-	
 if projection_mode == "sphere" then
-	generate = generate_spherical -- not fully implemented yet
+	projection = sphere
 	
 else
 	if projection_mode == "equaldistance" then
@@ -341,10 +356,8 @@ else
 		projection = orthographic
 	end
 	
-	offsets[0] = -height(0,0)
+	offsets[0] = -height_by_longitude_latitude(0,0)
 	offsets[1] = farside_below - max_height_nodes
-	
-	generate = generate_projected
 end
 
 minetest.register_on_generated(function(minp, maxp, seed)
@@ -352,7 +365,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	local data = vm:get_data()
 	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
 
-	generate(minp, maxp, data, area,  minetest.get_content_id("air"),
+	projection.generate(minp, maxp, data, area,  minetest.get_content_id("air"),
 		minetest.get_content_id("default:stone"))
 	
 	vm:set_data(data)
@@ -370,14 +383,14 @@ local function find_feature(name)
        local n,lat,ns,lon,ew = line:match("^([-A-Za-z ]*[A-Za-z]) +([0-9.]+)([NS]) +([0-9.]+)([EW])")
 	   if n and n:lower():gsub("[-' ]", "") == lower_name then
 		   if ns == 'S' then
-			  lat = -math.pi * tonumber(lat) / 180
+			  lat = -tonumber(lat)
 		   else
-			  lat = math.pi * tonumber(lat) / 180
+			  lat = tonumber(lat)
 		   end
 		   if ew == 'W' then
-			  lon = -math.pi * tonumber(lon) / 180
+			  lon = -tonumber(lon)
 		   else
-			  lon = math.pi * tonumber(lon) / 180
+			  lon = tonumber(lon)
 		   end
 		   return lat,lon
 		end
@@ -392,31 +405,14 @@ minetest.register_chatcommand("goto",
 		if args ~= "" then
 			local side = 0
 			local latitude, longitude = args:match("^([-0-9.]+) ([-0-9.]+)")
-			if longitude then
-				latitude = tonumber(latitude) * math.pi / 180
-				longitude = tonumber(longitude)
-				if longitude < -90 or longitude > 90 then
-					side = 1
-				end
-				longitude = longitude * math.pi / 180
-			else
+			if not longitude then
 				latitude,longitude = find_feature(args)
 				if not latitude then
 					minetest.chat_send_player(name, "Cannot find crater "..args)
 					return
 				end
-				if longitude < -half_pi or longitude > half_pi then
-					side = 1
-				end
 			end
-			if latitude < -half_pi or latitude > half_pi or longitude < -math.pi or longitude > math.pi then
-                minetest.chat_send_player(name, "Out of range.")
-				return
-			end
-			local x,z = projection.get_xz_from_longitude_latitude(longitude,latitude)
-			local y = height(x,z,side == 1) + offsets[side]			
-			minetest.log("action", "jumping to "..x.." "..y.." "..z)
-		    minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
+			projection.goto_latitude_longitude_degrees(name,latitude,longitude)
 		end
 	end})
 
@@ -426,7 +422,7 @@ minetest.register_chatcommand("where",
 	func = function(name, args)
 	        local pos = minetest.get_player_by_name(name):getpos()
 			local farside = pos.y < farside_below + thickness
-            local longitude,latitude = projection.get_longitude_latitude(pos.x, pos.z, farside)
+            local longitude,latitude = projection.get_longitude_latitude(pos.x, pos.y, pos.z, farside)
 			if longitude then
                 minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
 			else
