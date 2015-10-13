@@ -73,8 +73,8 @@ local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
 local max_height_nodes = max_height_units * nodes_per_height_unit
 local land_normalize = meters_per_land_node / radius
 
-local inner_radius_nodes = math.floor(inner_radius / meters_per_land_node)
-local outer_radius_nodes = math.ceil(inner_radius_nodes + max_height_nodes)
+local inner_radius_nodes = inner_radius / meters_per_land_node
+local outer_radius_nodes = inner_radius_nodes + max_height_nodes
 
 local offsets = {0,0}
 local farside_below = -5000
@@ -275,14 +275,30 @@ local function generate_projected(minp, maxp, data, area, vacuum, stone)
 end
 
 local function in_moon(x,y,z)
-	local r = math.sqrt(x*x, y*y, z*z)
+	local r = math.sqrt(x*x+y*y+z*z)
+	
 	if r < inner_radius_nodes then
-		return false
-	elseif outer_radius_nodes < r then
 		return true
+	elseif outer_radius_nodes < r then
+		return false
 	end
-	return false -- not fully implemented
+	
+	x = x / r
+	y = y / r
+	z = z / r
+	
+	local latitude = math.asin(z)
+	local longitude = math.atan2(x,y)
+	if y < 0 then
+		longitude = longitude + math.pi
+		if longitude > math.pi then
+			longitude = longitude - 2 * math.pi
+		end
+	end
+
+	return r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
 end
+
 
 local function generate_spherical(minp, maxp, data, area, vacuum, stone)
 	local block_radius = vector.distance(minp, maxp) / 2
@@ -297,11 +313,15 @@ local function generate_spherical(minp, maxp, data, area, vacuum, stone)
 			data[pos] = vacuum
 		end
 	else
-		for x,y,z in area:iter(minp,maxp) do
-			if in_moon(x,y,z) then
-				data[pos] = stone
-			else
-				data[pos] = vacuum
+		for y = minp.y,maxp.y do
+			for x = minp.x,maxp.x do
+				for z = minp.z,maxp.z do
+					if in_moon(x,y,z) then
+						data[area:index(x,y,z)] = stone
+					else
+						data[area:index(x,y,z)] = vacuum
+					end
+				end
 			end
 		end
 	end		
@@ -313,6 +333,7 @@ local generate
 	
 if projection_mode == "sphere" then
 	generate = generate_spherical -- not fully implemented yet
+	
 else
 	if projection_mode == "equaldistance" then
 		projection = equaldistance
@@ -423,5 +444,9 @@ minetest.register_on_joinplayer(function(player)
 	elseif sky == "fancy" then
 		player:set_sky({r=0,g=0,b=0},'skybox',
 			{'sky_pos_y.png','sky_neg_y.png','sky_neg_z.png','sky_pos_z.png','sky_neg_x.png','sky_pos_x.png'})
+	end
+	if projection_mode == "sphere" then
+		local pos = {x=0, y=inner_radius_nodes+height_by_longitude_latitude(0,0), z=0}
+		player:setpos(pos)
 	end
 end)
