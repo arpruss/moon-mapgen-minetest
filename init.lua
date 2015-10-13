@@ -59,6 +59,9 @@ else
 end
 world_settings:write()
 
+minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
+local projection
+
 local meters_per_vertical_node = meters_per_land_node / height_multiplier
 local max_height_units = 255
 local radius = 10917000 / 2
@@ -222,12 +225,6 @@ local equaldistance = {
 
 }
 
--- TODO: add equal distance projection
-local projection = orthographic
-if projection_mode == "equaldistance" then
-	projection = equaldistance
-end
-
 local function height(x,z,farside)
 	-- assume z goes north and x goes east
     local longitude,latitude = projection.get_longitude_latitude(x,z,farside)
@@ -235,21 +232,10 @@ local function height(x,z,farside)
 	return height_by_longitude_latitude(longitude, latitude)
 end
 
-offsets[0] = -height(0,0)
-offsets[1] = farside_below - max_height_nodes
-
-minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
-
-minetest.register_on_generated(function(minp, maxp, seed)
-	local c_air = minetest.get_content_id("air")
-	local c_stone = minetest.get_content_id("default:stone")
-	local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
-	local data = vm:get_data()
-	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
-
+local function generate_projected(minp, maxp, data, area, vacuum, stone)
 	if minp.y > max_height_nodes then
 		for pos in area:iterp(minp,maxp) do
-			data[pos] = c_air
+			data[pos] = vacuum
 		end
 	else
 		local offset
@@ -267,22 +253,50 @@ minetest.register_on_generated(function(minp, maxp, seed)
 				local f = height(x,z,farside)
 				if not f then
     				for y = minp.y,maxp.y do
-    					data[area:index(x, y, z)] = c_air
+    					data[area:index(x, y, z)] = vacuum
     				end
 				else
     				f = math.floor(f + offset)					
     				for y = minp.y,maxp.y do
 						if y < offset - thickness or y > f then 
-							data[area:index(x, y, z)] = c_air
+							data[area:index(x, y, z)] = vacuum
 						elseif y <= f then
-							data[area:index(x, y, z)] = c_stone
+							data[area:index(x, y, z)] = stone
 						end
     				end
 				end
 			end
 		end
 	end
+end
 
+minetest.log("action", "Moon projection mode: "..projection_mode)
+
+local generate
+	
+if projection_mode == "sphere" then
+	generate = nil -- not implemented yet
+else
+	if projection_mode == "equaldistance" then
+		projection = equaldistance
+	else 
+		projection = orthographic
+	end
+	
+	offsets[0] = -height(0,0)
+	offsets[1] = farside_below - max_height_nodes
+	
+	generate = generate_projected
+end
+
+minetest.register_on_generated(function(minp, maxp, seed)
+	local vm, emin, emax = minetest.get_mapgen_object("voxelmanip")
+	local data = vm:get_data()
+	local area = VoxelArea:new{MinEdge=emin, MaxEdge=emax}
+
+	generate(minp, maxp, data, area,  minetest.get_content_id("air"),
+		minetest.get_content_id("default:stone"))
+	
 	vm:set_data(data)
 	vm:calc_lighting()
 	vm:update_liquids()
