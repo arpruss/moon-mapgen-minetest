@@ -65,6 +65,7 @@ local radius = 10917000 / 2
 local meters_per_degree = 30336.3
 local meters_per_height_unit = 77.7246
 
+
 local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
 local max_height_nodes = max_height_units * nodes_per_height_unit
 local offsets = {0,0}
@@ -150,10 +151,10 @@ local orthographic = {
 		return longitude, math.asin(z)
 	end,
 
-	get_xz = function(latitude, longitude)
+	get_xz_from_longitude_latitude = function(longitude, latitude)
 		local z = math.sin(latitude) * radius / meters_per_land_node
 		local x = math.cos(latitude) * math.sin(longitude) * radius / meters_per_land_node
-		return x,z*z
+		return x,z
 	end
 }
 
@@ -273,7 +274,7 @@ minetest.register_chatcommand("goto",
                 minetest.chat_send_player(name, "Out of range.")
 				return
 			end
-			local x,z = projection.get_xz(longitude,latitude)
+			local x,z = projection.get_xz_from_longitude_latitude(longitude,latitude)
 			local y = height(x,z,side == 1) + offsets[side]			
 			minetest.log("action", "jumping to "..x.." "..y.." "..z)
 		    minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
@@ -285,7 +286,7 @@ minetest.register_chatcommand("where",
 	description="Get latitude and longitude of current position on moon.",
 	func = function(name, args)
 	        local pos = minetest.get_player_by_name(name):getpos()
-			local farside = pos.y < farside_below + thickness				
+			local farside = pos.y < farside_below + thickness
             local longitude,latitude = projection.get_longitude_latitude(pos.x, pos.z, farside)
 			if longitude then
                 minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
