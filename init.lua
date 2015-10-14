@@ -1,3 +1,29 @@
+--[[
+LICENSE FOR CODE (NOT FOR TEXTURES)
+
+The MIT License (MIT)
+
+Code copyright (c) 2015 Alexander R. Pruss
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE. 
+--]]
+
 local meters_per_land_node = 150
 local height_multiplier = 1
 local gravity = 0.165
@@ -175,7 +201,7 @@ local orthographic = {
 	end,
 
 	goto_latitude_longitude_degrees = function(name, latitude, longitude)
-		local side = 0
+		local side =  0
 		latitude = tonumber(latitude) * math.pi / 180
 		longitude = tonumber(longitude)
 		if longitude < -90 or longitude > 90 then
@@ -331,7 +357,7 @@ local sphere = {
 			for y = minp.y,maxp.y do
 				for x = minp.x,maxp.x do
 					for z = minp.z,maxp.z do
-						if sphere.in_moon(x,y,z) then
+						if projection.in_moon(x,y,z) then
 							data[area:index(x,y,z)] = stone
 						else
 							data[area:index(x,y,z)] = vacuum
