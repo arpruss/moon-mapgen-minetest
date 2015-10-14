@@ -315,6 +315,19 @@ local equaldistance = {
 }
 
 local sphere = {
+	get_longitude_latitude = function(x,y,z,farside)
+		local r = math.sqrt(x*x+y*y+z*z)
+
+		if r < 1e-8 then
+			return 0,0
+		end
+
+		local latitude = math.asin(z/r)
+		local longitude = math.atan2(x,y)
+		
+		return longitude, latitude
+	end,
+
 	in_moon = function(x,y,z)
 		local r = math.sqrt(x*x+y*y+z*z)
 		
@@ -330,12 +343,6 @@ local sphere = {
 		
 		local latitude = math.asin(z)
 		local longitude = math.atan2(x,y)
-		if y < 0 then
-			longitude = longitude + math.pi
-			if longitude > math.pi then
-				longitude = longitude - 2 * math.pi
-			end
-		end
 
 		return r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
 	end,
@@ -447,7 +454,7 @@ minetest.register_chatcommand("where",
 	description="Get latitude and longitude of current position on moon.",
 	func = function(name, args)
 	        local pos = minetest.get_player_by_name(name):getpos()
-			local farside = pos.y < farside_below + thickness
+			local farside = pos.y < farside_below + thickness -- irrelevant if sphere
             local longitude,latitude = projection.get_longitude_latitude(pos.x, pos.y, pos.z, farside)
 			if longitude then
                 minetest.chat_send_player(name, "Latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
@@ -467,7 +474,7 @@ minetest.register_on_joinplayer(function(player)
 		player:set_sky({r=0,g=0,b=0},'skybox',
 			{'sky_pos_y.png','sky_neg_y.png','sky_neg_z.png','sky_pos_z.png','sky_neg_x.png','sky_pos_x.png'})
 	end
-	if projection_mode == "sphere" then
+	if projection == sphere then
 		local pos = {x=0, y=inner_radius_nodes+height_by_longitude_latitude(0,0), z=0}
 		player:setpos(pos)
 	end
