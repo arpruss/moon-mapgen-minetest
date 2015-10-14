@@ -31,6 +31,7 @@ local sky = "black"
 local projection_mode = "orthographic"
 
 if minetest.request_insecure_environment then
+   print "Request"
    ie = minetest.request_insecure_environment()
 else
    ie = _G
@@ -62,6 +63,13 @@ if x then projection_mode = x end
 
 local need_update = false
 local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
+local x = world_settings:get("projection")
+if x then
+	projection_mode = x
+else
+	world_settings:set("projection_mode", projection_mode)
+	need_update = true
+end
 local x = world_settings:get("land_node_meters")
 if x then
 	meters_per_land_node=tonumber(x)
@@ -74,13 +82,6 @@ if x then
 	height_multiplier=tonumber(x)
 else
 	world_settings:set("height_multiplier", tostring(height_multiplier))
-	need_update = true
-end
-local x = world_settings:get("projection")
-if x then
-	projection_mode = x
-else
-	world_settings:set("projection_mode", projection_mode)
 	need_update = true
 end
 world_settings:write()
@@ -394,7 +395,6 @@ local sphere = {
 		player:setpos({x=x,y=y,z=z})
 	end
 }
-
 
 minetest.log("action", "Moon projection mode: "..projection_mode)
 
