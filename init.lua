@@ -385,11 +385,13 @@ local sphere = {
 		x = x * r
 		y = y * r
 		z = z * r
+		local player = minetest.get_player_by_name(name)
 		if y < 0 then 
 			y = y - 2
 		end
+
 		minetest.log("action", "jumping to "..x.." "..y.." "..z)
-		minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
+		player:setpos({x=x,y=y,z=z})
 	end
 }
 
@@ -424,6 +426,7 @@ minetest.register_on_generated(function(minp, maxp, seed)
 	vm:write_to_map()
 end)
 
+		
 local function find_feature(name)
     local lower_name = name:lower():gsub("[-' ]", "")
     local f = assert(ie.io.open(mypath .. "craters.txt", "r"))
@@ -491,8 +494,18 @@ minetest.register_on_joinplayer(function(player)
 		player:set_sky({r=0,g=0,b=0},'skybox',
 			{'sky_pos_y.png','sky_neg_y.png','sky_neg_z.png','sky_pos_z.png','sky_neg_x.png','sky_pos_x.png'})
 	end
-	if projection == sphere then
-		local pos = {x=0, y=inner_radius_nodes+height_by_longitude_latitude(0,0), z=0}
-		player:setpos(pos)
-	end
+	local name = player:get_player_name()
+	local p = minetest.get_player_privs(name)
+	p['fly'] = true
+	minetest.set_player_privs(name, p)
 end)
+
+if projection == sphere then
+	local default_location = function(player) 
+		player:setpos({x=0, y=inner_radius_nodes+height_by_longitude_latitude(0,0), z=0})
+	end
+
+	minetest.register_on_newplayer(default_location)
+	minetest.register_on_respawnplayer(default_location)
+end
+
