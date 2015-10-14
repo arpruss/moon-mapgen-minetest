@@ -373,6 +373,23 @@ local sphere = {
 				end
 			end
 		end		
+	end,
+	
+	goto_latitude_longitude_degrees = function(name, latitude, longitude)
+		latitude = latitude * math.pi / 180
+		longitude = longitude * math.pi / 180
+		local x = math.cos(latitude) * math.sin(longitude)
+		local y = math.cos(latitude) * math.cos(longitude)
+		local z = math.sin(latitude)
+		local r = inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
+		x = x * r
+		y = y * r
+		z = z * r
+		if y < 0 then 
+			y = y - 2
+		end
+		minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
 	end
 }
 
