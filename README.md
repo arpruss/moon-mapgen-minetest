@@ -1,5 +1,5 @@
 # moon-mapgen-minetest
-Minetest mod that generates a world consisting of two flat discs, based on an exaggeration NASA LOLA spacecraft lunar terrain data. The upper disc is the nearside (flattened out, but with exaggerated terrain), and the lower disc--far below--is the farside of the moon.
+Minetest mod that generates a world consisting of two flat discs, based on NASA LOLA spacecraft lunar terrain data. The upper disc is the nearside (flattened out), and the lower disc--far below--is the farside of the moon.
 
 You can control the mod by editing settings.conf before generating the world. Note that the scale (number of meters each node represents and the height-exaggeration factor) cannot be changed once the world has been generated, but you can change gravity and sky afterwards.
 
