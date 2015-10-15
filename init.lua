@@ -28,10 +28,10 @@ local meters_per_land_node = 150
 local height_multiplier = 1
 local gravity = 0.165
 local sky = "black"
-local projection_mode = "orthographic"
+local projection_mode = "equaldistance"
+local teleport = false
 
 if minetest.request_insecure_environment then
-   print "Request"
    ie = minetest.request_insecure_environment()
 else
    ie = _G
@@ -60,6 +60,8 @@ x = settings:get("sky")
 if x then sky = x end
 x = settings:get("projection")
 if x then projection_mode = x end
+x = settings:get_bool("teleport")
+if x ~= nil then teleport = x end
 
 local need_update = false
 local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
@@ -84,6 +86,13 @@ else
 	world_settings:set("height_multiplier", tostring(height_multiplier))
 	need_update = true
 end
+local x = world_settings:get_bool("teleport")
+if x ~= nil then
+	teleport=x
+else
+	world_settings:set("teleport", tostring(teleport))
+	need_update = true
+end
 world_settings:write()
 
 minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
@@ -100,6 +109,7 @@ local nodes_per_height_unit = meters_per_height_unit / meters_per_vertical_node
 local max_height_nodes = max_height_units * nodes_per_height_unit
 local land_normalize = meters_per_land_node / radius
 
+local radius_nodes = radius / meters_per_land_node
 local inner_radius_nodes = inner_radius / meters_per_land_node
 local outer_radius_nodes = inner_radius_nodes + max_height_nodes
 
@@ -168,13 +178,21 @@ local function height_by_longitude_latitude(longitude, latitude)
 	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit
 end
 
+local equaldistance
+
 local orthographic = {
-	get_longitude_latitude = function(x,y0,z,farside)
+	get_longitude_latitude = function(x,y0,z,farside,allow_oversize)
 		local x = x * land_normalize
 		local z = z * land_normalize
 		local xz2 = x*x + z*z
 		if xz2 > 1 then
-			return nil
+			if allow_oversize then
+				local r = math.sqrt(xz2)
+				x = x / r
+				z = z / r
+			else
+				return nil
+			end
 		end
 		local y = math.sqrt(1-xz2)
 		local longitude
@@ -236,7 +254,7 @@ local orthographic = {
 			end
 			for x = minp.x,maxp.x do
 				for z = minp.z,maxp.z do
-					local longitude,latitude = projection.get_longitude_latitude(x,0,z,farside)
+					local longitude,latitude = projection.get_longitude_latitude(x,0,z,farside,teleport and projection==equaldistance)
 					if not longitude then
 						for y = minp.y,maxp.y do
 							data[area:index(x, y, z)] = vacuum
@@ -258,15 +276,16 @@ local orthographic = {
 
 }
 
-local equaldistance = {
-	get_longitude_latitude = function(x,y0,z,farside)
+equaldistance = {
+	get_longitude_latitude = function(x,y0,z,farside,allow_oversize)
 		local x = x * land_normalize
 		local z = z * land_normalize
 		local xz2 = x*x + z*z
-		if xz2 > 1 then
+
+		if xz2 > 2 or (xz2 > 1 and not allow_oversize) then
 			return nil
 		end
-
+		
 		local xz = math.sqrt(xz2)
 		
 		if xz < 1e-8 then
@@ -280,7 +299,9 @@ local equaldistance = {
 		local adjustment = math.sin(xz*half_pi)/xz
 		x = x * adjustment
 		z = z * adjustment
+
 		local y = math.sqrt(1-x*x-z*z)
+
 		local longitude = math.atan2(x,y)
 		if farside then
 			longitude = longitude + math.pi
@@ -289,6 +310,14 @@ local equaldistance = {
 			end
 		end
 
+		if xz > 1 then
+			if longitude >= 0 then 
+				longitude = math.pi - longitude
+			else 
+				longitude = -math.pi - longitude
+			end
+		end
+		
 		return longitude, math.asin(z)
 	end,
 	
@@ -509,3 +538,25 @@ if projection == sphere then
 	minetest.register_on_respawnplayer(default_location)
 end
 
+if teleport and projection ~= sphere then
+	minetest.register_globalstep(function(dtime)
+		local players = minetest.get_connected_players()
+		for i = 1,#players do
+			local pos = players[i]:getpos()
+			local r = math.hypot(pos.x, pos.z)
+			if r > radius_nodes then
+				local farside = pos.y <= farside_below
+				local longitude,latitude = 
+					projection.get_longitude_latitude(
+					pos.x,pos.y,pos.z,farside,true)
+				if longitude then
+					local name = players[i]:get_player_name()
+					minetest.chat_send_player(name, 
+						"Teleporting to other side, latitude: "..(latitude*180/math.pi)..", longitude: "..(longitude*180/math.pi))
+					projection.goto_latitude_longitude_degrees(name, 
+						latitude * 180 / math.pi, longitude * 180 / math.pi)
+				end
+			end
+		end
+	end)
+end
