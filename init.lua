@@ -24,6 +24,12 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE. 
 --]]
 
+if minetest.request_insecure_environment then
+   ie = minetest.request_insecure_environment()
+else
+   ie = _G
+end
+
 local meters_per_land_node = 150
 local height_multiplier = 1
 local gravity = 0.165
@@ -31,12 +37,8 @@ local sky = "black"
 local projection_mode = "equaldistance"
 local teleport = false
 
-if minetest.request_insecure_environment then
-   ie = minetest.request_insecure_environment()
-else
-   ie = _G
-end
 
+	
 local source = ie.debug.getinfo(1).source:sub(2)
 -- Detect windows via backslashes in paths
 local mypath = minetest.get_modpath(minetest.get_current_modname())
@@ -117,6 +119,7 @@ local offsets = {0,0}
 local farside_below = -5000
 local thickness = 500
 
+
 local chunks = {}
 local data_per_degree = 64
 local row_size = 360 * data_per_degree
@@ -177,6 +180,65 @@ end
 local function height_by_longitude_latitude(longitude, latitude)
 	return get_interpolated_data(longitude,latitude) * nodes_per_height_unit
 end
+
+
+--[[
+local moonstone = {}
+
+for i = 0,255 do
+	local name = "moon:moonstone_"..i
+	minetest.register_node(name, {
+		description = "Moon stone "..i,
+		tiles = {"block"..i..".png"},
+		groups = {cracky=3, stone=1},
+		drop = 'moon:moonstone_'..i,
+		legacy_mineral = true,
+	})
+	moonstone[i] = minetest.get_content_id(name)
+end
+
+local albedo_width = 1024
+local albedo_height = 512
+local albedo_filename = "ela.dat"
+local albedo_radians_to_pixels = albedo_height / math.pi
+
+local f = assert(ie.io.open(mypath .. albedo_filename, "rb"))
+local albedo = f:read("*all")
+f:close()
+local function get_raw_albedo(column,row)
+	if row < 0 then
+	   row = 0
+	elseif row >= albedo_height then
+	   row = albedo_height - 1
+	end
+	if column < 0 then
+	   column = 0
+	elseif column >= albedo_width then
+	   column = albedo_width - 1
+	end
+	return albedo:byte(row * albedo_width + column)
+end
+
+local function get_interpolated_albedo(longitude,latitude)
+    local row = (half_pi - latitude) * albedo_radians_to_pixels
+    local column = (longitude + math.pi) * albedo_radians_to_pixels
+    local row0 = math.floor(row)
+    local drow = row - row0
+    local column0 = math.floor(column)
+    local dcolumn = column - column0
+    local v00 = get_raw_albedo(column0,row0)
+    local v10 = get_raw_albedo(column0+1,row0)
+    local v01 = get_raw_albedo(column0,row0+1)
+    local v11 = get_raw_albedo(column0+1,row0+1)
+    local v0 = v00 * (1-dcolumn) + v10 * dcolumn
+    local v1 = v01 * (1-dcolumn) + v11 * dcolumn
+    local albedo = v0 * (1-drow) + v1 * drow
+	return math.floor(albedo)
+end
+--]]
+
+
+
 
 local equaldistance
 
@@ -261,11 +323,12 @@ local orthographic = {
 						end
 					else
 						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
+						local block = stone -- moonstone[get_interpolated_albedo(longitude,latitude)]
 						for y = minp.y,maxp.y do
 							if y < offset - thickness or y > f then 
 								data[area:index(x, y, z)] = vacuum
 							elseif y <= f then
-								data[area:index(x, y, z)] = stone
+								data[area:index(x, y, z)] = block
 							end
 						end
 					end
