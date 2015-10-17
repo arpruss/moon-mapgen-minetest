@@ -283,12 +283,14 @@ local orthographic = {
 
 	goto_latitude_longitude_degrees = function(name, latitude, longitude)
 		local side =  0
+		print(latitude,longitude)
 		latitude = tonumber(latitude) * math.pi / 180
 		longitude = tonumber(longitude)
 		if longitude < -90 or longitude > 90 then
 			side = 1
 		end
 		longitude = longitude * math.pi / 180
+		print(latitude,longitude)
 		if latitude < -half_pi or latitude > half_pi or longitude < -math.pi or longitude > math.pi then
 			minetest.chat_send_player(name, "Out of range.")
 			return
@@ -520,31 +522,23 @@ end)
 
 		
 local function find_feature(name)
-    local lower_name = name:lower():gsub("[-' ]", "")
-    local f = assert(ie.io.open(mypath .. "craters.txt", "r"))
+    local lower_name = name:lower():gsub("[^A-Za-z]", "")
+    local f = assert(ie.io.open(mypath .. "features.txt", "r"))
     while true do
        local line = f:read()
        if not line then break end
-       local n,lat,ns,lon,ew = line:match("^([-A-Za-z ]*[A-Za-z]) +([0-9.]+)([NS]) +([0-9.]+)([EW])")
-	   if n and n:lower():gsub("[-' ]", "") == lower_name then
-		   if ns == 'S' then
-			  lat = -tonumber(lat)
-		   else
-			  lat = tonumber(lat)
-		   end
-		   if ew == 'W' then
-			  lon = -tonumber(lon)
-		   else
-			  lon = tonumber(lon)
-		   end
-		   return lat,lon
+       local key,name,lat,lon,size = line:match("^([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)")
+	   if key == lower_name then
+		   f.close()
+		   return tonumber(lat),tonumber(lon),name
 		end
     end
+	f.close()
     return nil
 end
 
 minetest.register_chatcommand("goto",
-	{params="<latitude> <longitude>  or  <crater name>" ,
+	{params="<latitude> <longitude>  or  <feature name>" ,
 	description="Go to location on moon. Negative latitudes are south and negative longitudes are west.",
 	func = function(name, args)
 		if args ~= "" then
@@ -553,7 +547,7 @@ minetest.register_chatcommand("goto",
 			if not longitude then
 				latitude,longitude = find_feature(args)
 				if not latitude then
-					minetest.chat_send_player(name, "Cannot find crater "..args)
+					minetest.chat_send_player(name, "Cannot find object "..args)
 					return
 				end
 			end
