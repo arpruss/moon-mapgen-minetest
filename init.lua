@@ -163,7 +163,8 @@ end
 
 local function get_interpolated_data(longitude,latitude)
     local row = (half_pi - latitude) * radians_to_pixels
-    local column = (longitude + math.pi) * radians_to_pixels
+	if longitude < 0 then longitude = longitude + 2 * math.pi end
+    local column = longitude * radians_to_pixels
     local row0 = math.floor(row)
     local drow = row - row0
     local column0 = math.floor(column)
