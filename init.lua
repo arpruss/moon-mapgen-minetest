@@ -284,14 +284,12 @@ local orthographic = {
 
 	goto_latitude_longitude_degrees = function(name, latitude, longitude)
 		local side =  0
-		print(latitude,longitude)
 		latitude = tonumber(latitude) * math.pi / 180
 		longitude = tonumber(longitude)
 		if longitude < -90 or longitude > 90 then
 			side = 1
 		end
 		longitude = longitude * math.pi / 180
-		print(latitude,longitude)
 		if latitude < -half_pi or latitude > half_pi or longitude < -math.pi or longitude > math.pi then
 			minetest.chat_send_player(name, "Out of range.")
 			return
