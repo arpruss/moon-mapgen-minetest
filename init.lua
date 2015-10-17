@@ -152,9 +152,9 @@ local function get_raw_data(column,row)
            row = rows_total - 1
         end
         if column < 0 then
-           column = 0
-        elseif column >= columns_total then
            column = columns_total - 1
+        elseif column >= columns_total then
+           column = 0
         end
 	local chunk_number = math.floor(row / rows_per_chunk)
 	local offset = (row - chunk_number * rows_per_chunk) * row_size + column
@@ -282,7 +282,7 @@ local orthographic = {
 		return x,z
 	end,
 
-	goto_latitude_longitude_degrees = function(name, latitude, longitude)
+	goto_latitude_longitude_degrees = function(name, latitude, longitude, feature_name)
 		local side =  0
 		latitude = tonumber(latitude) * math.pi / 180
 		longitude = tonumber(longitude)
@@ -296,7 +296,12 @@ local orthographic = {
 		end
 		local x,z = projection.get_xz_from_longitude_latitude(longitude,latitude)
 		local y = height_by_longitude_latitude(longitude, latitude) + offsets[side]			
-		minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		if feature_name then
+			minetest.chat_send_player(name, "Jumping to "..feature_name..".")
+			minetest.log("action", "jumping to "..feature_name.." at "..x.." "..y.." "..z)
+		else
+			minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		end
 		minetest.get_player_by_name(name):setpos({x=x,y=y,z=z})
 	end,
 	
@@ -469,7 +474,7 @@ local sphere = {
 		end		
 	end,
 	
-	goto_latitude_longitude_degrees = function(name, latitude, longitude)
+	goto_latitude_longitude_degrees = function(name, latitude, longitude, feature_name)
 		latitude = latitude * math.pi / 180
 		longitude = longitude * math.pi / 180
 		local x = math.cos(latitude) * math.sin(longitude)
@@ -484,7 +489,13 @@ local sphere = {
 			y = y - 2
 		end
 
-		minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		if feature_name then
+			minetest.chat_send_player(name, "Jumping to "..feature_name..".")
+			minetest.log("action", "jumping to "..feature_name.." at "..x.." "..y.." "..z)
+		else
+			minetest.chat_send_player(name, "Jumping to coordinates.")
+			minetest.log("action", "jumping to "..x.." "..y.." "..z)
+		end
 		player:setpos({x=x,y=y,z=z})
 	end
 }
@@ -522,18 +533,28 @@ end)
 		
 local function find_feature(name)
     local lower_name = name:lower():gsub("[^A-Za-z]", "")
+	local name_length = name:len()
     local f = assert(ie.io.open(mypath .. "features.txt", "r"))
+	local partial_fullname,partial_lat,partial_lon,partial_size
+	partial_lat = nil
     while true do
-       local line = f:read()
-       if not line then break end
-       local key,name,lat,lon,size = line:match("^([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)")
-	   if key == lower_name then
+	    local line = f:read()
+	    if not line then break end
+	    local key,fullname,lat,lon,size = line:match("^([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)")
+	    if key == lower_name then
 		   f.close()
-		   return tonumber(lat),tonumber(lon),name
+		   return tonumber(lat),tonumber(lon),fullname
+		end
+		if not partial_lat and key:sub(1,name_length) == lower_name then
+			partial_fullname,partial_lat,partial_lon,partial_size = fullname,lat,lon,size
 		end
     end
 	f.close()
-    return nil
+	if partial_lat then
+		return tonumber(partial_lat),tonumber(partial_lon),partial_fullname
+	else
+		return nil
+	end
 end
 
 minetest.register_chatcommand("goto",
@@ -543,14 +564,15 @@ minetest.register_chatcommand("goto",
 		if args ~= "" then
 			local side = 0
 			local latitude, longitude = args:match("^([-0-9.]+) ([-0-9.]+)")
+			local feature_name = nil
 			if not longitude then
-				latitude,longitude = find_feature(args)
+				latitude,longitude,feature_name = find_feature(args)
 				if not latitude then
 					minetest.chat_send_player(name, "Cannot find object "..args)
 					return
 				end
 			end
-			projection.goto_latitude_longitude_degrees(name,latitude,longitude)
+			projection.goto_latitude_longitude_degrees(name,latitude,longitude,feature_name)
 		end
 	end})
 
