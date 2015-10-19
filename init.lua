@@ -36,7 +36,7 @@ local gravity = 0.165
 local sky = "black"
 local projection_mode = "equaldistance"
 local teleport = false
-
+local albedo = true
 
 	
 local source = ie.debug.getinfo(1).source:sub(2)
@@ -64,6 +64,8 @@ x = settings:get("projection")
 if x then projection_mode = x end
 x = settings:get_bool("teleport")
 if x ~= nil then teleport = x end
+x = settings:get_bool("albedo")
+if x ~= nil then albedo = x end
 
 local need_update = false
 local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
@@ -93,6 +95,13 @@ if x ~= nil then
 	teleport=x
 else
 	world_settings:set("teleport", tostring(teleport))
+	need_update = true
+end
+local x = world_settings:get_bool("albedo")
+if x ~= nil then
+	albedo=x
+else
+	world_settings:set("albedo", tostring(albedo))
 	need_update = true
 end
 world_settings:write()
@@ -184,17 +193,22 @@ end
 
 
 local moonstone = {}
+local block_prefix = minetest.get_current_modname()..":moonstone_"
 
-for i = 0,255 do
-	local name = "moon:moonstone_"..i
+for i = 16,245 do
+	local name = block_prefix..i
 	minetest.register_node(name, {
 		description = "Moon stone "..i,
-		tiles = {"block"..i..".png"},
+		tiles = {"moon_moonstone"..i..".png"},
 		groups = {cracky=3, stone=1},
-		drop = 'moon:moonstone_'..i,
+		drop = block_prefix..i,
 		legacy_mineral = true,
 	})
-	moonstone[i] = minetest.get_content_id(name)
+end
+
+for i = 0,255 do
+	j = math.floor(0.5 + i/255. * (245-16) + 16)
+	moonstone[i] = minetest.get_content_id(block_prefix..j)
 end
 
 local albedo_width = 4096
@@ -327,7 +341,12 @@ local orthographic = {
 						end
 					else
 						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
-						local block = moonstone[get_interpolated_albedo(longitude,latitude)]
+						local block
+						if albedo then
+							block = moonstone[get_interpolated_albedo(longitude,latitude)]
+						else
+							block = stone
+						end
 						for y = minp.y,maxp.y do
 							if y < offset - thickness or y > f then 
 								data[area:index(x, y, z)] = vacuum
