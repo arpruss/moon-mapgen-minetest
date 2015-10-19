@@ -183,7 +183,6 @@ local function height_by_longitude_latitude(longitude, latitude)
 end
 
 
---[[
 local moonstone = {}
 
 for i = 0,255 do
@@ -198,9 +197,9 @@ for i = 0,255 do
 	moonstone[i] = minetest.get_content_id(name)
 end
 
-local albedo_width = 1024
-local albedo_height = 512
-local albedo_filename = "ela.dat"
+local albedo_width = 4096
+local albedo_height = 2048
+local albedo_filename = "albedo4096x2048.dat"
 local albedo_radians_to_pixels = albedo_height / math.pi
 
 local f = assert(ie.io.open(mypath .. albedo_filename, "rb"))
@@ -222,7 +221,8 @@ end
 
 local function get_interpolated_albedo(longitude,latitude)
     local row = (half_pi - latitude) * albedo_radians_to_pixels
-    local column = (longitude + math.pi) * albedo_radians_to_pixels
+	if longitude < 0 then longitude = longitude + 2 * math.pi end
+    local column = longitude * albedo_radians_to_pixels
     local row0 = math.floor(row)
     local drow = row - row0
     local column0 = math.floor(column)
@@ -236,8 +236,6 @@ local function get_interpolated_albedo(longitude,latitude)
     local albedo = v0 * (1-drow) + v1 * drow
 	return math.floor(albedo)
 end
---]]
-
 
 
 
@@ -329,7 +327,7 @@ local orthographic = {
 						end
 					else
 						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
-						local block = stone -- moonstone[get_interpolated_albedo(longitude,latitude)]
+						local block = moonstone[get_interpolated_albedo(longitude,latitude)]
 						for y = minp.y,maxp.y do
 							if y < offset - thickness or y > f then 
 								data[area:index(x, y, z)] = vacuum
