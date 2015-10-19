@@ -22,10 +22,10 @@ double get_raw_data(unsigned char* in, int side, int column, int row)
 	return in[column+row*side];
 }
 
-int getValue(unsigned char* in, int side, double longitude, double latitude)
+int getValue(unsigned char* in, int side, double longitude, double latitude, double scale)
 {
-	double x = side/2+780./782.*(side/2)*cos(latitude)*sin(longitude);
-	double y = side/2-780./782.*(side/2)*sin(latitude);
+	double x = side/2+scale*(side/2)*cos(latitude)*sin(longitude);
+	double y = side/2-scale*(side/2)*sin(latitude);
 	int row0 = (int)floor(y);
     double drow = y - row0;
     int column0 = (int)floor(x);
@@ -82,11 +82,13 @@ main()
 		if (HEIGHT / 6 <= y && y < HEIGHT / 6 + MID_HEIGHT)
 			value = mid[(y-HEIGHT/6)*MID_WIDTH+x];
 		else if (x  < WIDTH/4) 
-			value = getValue(nearside,NEARSIDE_DIM,longitude,latitude);
+			value = getValue(nearside,NEARSIDE_DIM,longitude,latitude,779./782.);
 		else if (x >= WIDTH/4*3)
-			value = getValue(nearside,NEARSIDE_DIM,longitude,latitude);
-		else 
-			value = getValue(farside,FARSIDE_DIM,longitude-M_PI,latitude);
+			value = getValue(nearside,NEARSIDE_DIM,longitude,latitude,779./782.);
+		else {
+			value = getValue(farside,FARSIDE_DIM,longitude-M_PI,latitude,779/782.);
+			value = 255 - (255 - value)*(255-184)/(255-170);
+		}
 		fputc(value, f);
 	}
 
