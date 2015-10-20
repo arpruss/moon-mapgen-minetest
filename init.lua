@@ -69,7 +69,7 @@ if x ~= nil then albedo = x end
 
 local need_update = false
 local world_settings = Settings(minetest.get_worldpath() .. path_separator .. "moon-mapgen-settings.conf")
-local x = world_settings:get("projection")
+local x = world_settings:get("projection_mode")
 if x then
 	projection_mode = x
 else
@@ -104,7 +104,10 @@ else
 	world_settings:set("albedo", tostring(albedo))
 	need_update = true
 end
-world_settings:write()
+if need_update then 
+	minetest.log("action", "Saving world-specific settings.")
+	world_settings:write() 
+end
 
 minetest.set_mapgen_params({mgname="singlenode", water_level = -30000}) -- flags="nolight", flagmask="nolight"
 local projection
