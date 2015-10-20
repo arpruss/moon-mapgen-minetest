@@ -216,10 +216,10 @@ end
 
 local albedo_width = 4096
 local albedo_height = 2048
-local albedo_filename = "albedo4096x2048.dat"
+local albedo_filename = mypath .. "terrain" .. path_separator .. "albedo4096x2048.dat"
 local albedo_radians_to_pixels = albedo_height / math.pi
 
-local f = assert(ie.io.open(mypath .. albedo_filename, "rb"))
+local f = assert(ie.io.open(albedo_filename, "rb"))
 local albedo = f:read("*all")
 f:close()
 local function get_raw_albedo(column,row)
