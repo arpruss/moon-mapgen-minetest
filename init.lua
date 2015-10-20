@@ -444,13 +444,13 @@ local sphere = {
 		return longitude, latitude
 	end,
 
-	in_moon = function(x,y,z)
+	get_block = function(x,y,z,vacuum,stone)
 		local r = math.sqrt(x*x+y*y+z*z)
 		
-		if r < inner_radius_nodes then
-			return true
+		if r < inner_radius_nodes - 5 then
+			return stone
 		elseif outer_radius_nodes < r then
-			return false
+			return vacuum
 		end
 		
 		x = x / r
@@ -460,7 +460,15 @@ local sphere = {
 		local latitude = math.asin(z)
 		local longitude = math.atan2(x,y)
 
-		return r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude)
+		if r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude) then
+			if albedo then
+				return moonstone[get_interpolated_albedo(longitude,latitude)]
+			else
+				return stone
+			end
+		else
+			return vacuum
+		end
 	end,
 
 
@@ -480,11 +488,7 @@ local sphere = {
 			for y = minp.y,maxp.y do
 				for x = minp.x,maxp.x do
 					for z = minp.z,maxp.z do
-						if projection.in_moon(x,y,z) then
-							data[area:index(x,y,z)] = stone
-						else
-							data[area:index(x,y,z)] = vacuum
-						end
+						data[area:index(x,y,z)] = projection.get_block(x,y,z,vacuum,stone)
 					end
 				end
 			end
