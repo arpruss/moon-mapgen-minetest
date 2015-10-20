@@ -230,7 +230,7 @@ local function get_raw_albedo(column,row)
 	elseif column >= albedo_width then
 	   column = albedo_width - 1
 	end
-	return albedo:byte(row * albedo_width + column)
+	return albedo:byte(1 + row * albedo_width + column)
 end
 
 local function get_interpolated_albedo(longitude,latitude)
@@ -376,7 +376,7 @@ equaldistance = {
 		
 		if xz < 1e-8 then
 			if farside then
-				return 0,math.pi
+				return math.pi,0
 			else
 				return 0,0
 			end
