@@ -198,7 +198,7 @@ end
 local moonstone = {}
 local block_prefix = minetest.get_current_modname()..":moonstone_"
 
-for i = 16,245 do
+for i = 16,244,4 do
 	local name = block_prefix..i
 	minetest.register_node(name, {
 		description = "Moon stone "..i,
@@ -209,10 +209,12 @@ for i = 16,245 do
 	})
 end
 
-for i = 0,255 do
-	j = math.floor(0.5 + i/255. * (245-16) + 16)
-	moonstone[i] = minetest.get_content_id(block_prefix..j)
+local max_brightness = (244-16)/4
+
+for i = 0,max_brightness do
+	moonstone[i] = minetest.get_content_id(block_prefix..(16+i*4))
 end
+moonstone[max_brightness+1] = moonstone[max_brightness]
 
 local albedo_width = 4096
 local albedo_height = 2048
@@ -251,7 +253,7 @@ local function get_interpolated_albedo(longitude,latitude)
     local v0 = v00 * (1-dcolumn) + v10 * dcolumn
     local v1 = v01 * (1-dcolumn) + v11 * dcolumn
     local albedo = v0 * (1-drow) + v1 * drow
-	return math.floor(albedo)
+	return albedo * 58 / 255
 end
 
 
@@ -346,7 +348,7 @@ local orthographic = {
 						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
 						local block
 						if albedo then
-							block = moonstone[get_interpolated_albedo(longitude,latitude)]
+							block = moonstone[math.floor(get_interpolated_albedo(longitude,latitude)+math.random())]
 						else
 							block = stone
 						end

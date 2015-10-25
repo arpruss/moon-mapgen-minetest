@@ -4,7 +4,7 @@ from struct import pack
 
 def clamp(n): return max(0, min(n, 255))
 
-for value in range(16,246):
+for value in range(16,245,4):
 	p = open("tmp.bin", "wb")
 	for y in range(16):
 		x = 0
@@ -18,3 +18,4 @@ for value in range(16,246):
 	p.close()
 	system("convert -depth 8 -size 16x16 gray:tmp.bin textures/moon_moonstone"+str(value)+".png")
 	
+
