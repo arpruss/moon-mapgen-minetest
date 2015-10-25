@@ -238,7 +238,7 @@ local function get_raw_albedo(column,row)
 	return albedo:byte(1 + row * albedo_width + column)
 end
 
-local function get_interpolated_albedo(longitude,latitude)
+local function get_interpolated_block(longitude,latitude)
     local row = (half_pi - latitude) * albedo_radians_to_pixels
 	if longitude < 0 then longitude = longitude + 2 * math.pi end
     local column = longitude * albedo_radians_to_pixels
@@ -253,10 +253,8 @@ local function get_interpolated_albedo(longitude,latitude)
     local v0 = v00 * (1-dcolumn) + v10 * dcolumn
     local v1 = v01 * (1-dcolumn) + v11 * dcolumn
     local albedo = v0 * (1-drow) + v1 * drow
-	return albedo * 58 / 255
+	return moonstone[math.floor(albedo * 58 / 255+math.random())]
 end
-
-
 
 local equaldistance
 
@@ -348,7 +346,7 @@ local orthographic = {
 						local f = math.floor(height_by_longitude_latitude(longitude, latitude) + offset)
 						local block
 						if albedo then
-							block = moonstone[math.floor(get_interpolated_albedo(longitude,latitude)+math.random())]
+							block = get_interpolated_block(longitude,latitude)
 						else
 							block = stone
 						end
@@ -467,7 +465,7 @@ local sphere = {
 
 		if r <= inner_radius_nodes + height_by_longitude_latitude(longitude, latitude) then
 			if albedo then
-				return moonstone[get_interpolated_albedo(longitude,latitude)]
+				return get_interpolated_block(longitude,latitude)
 			else
 				return stone
 			end
