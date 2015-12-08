@@ -566,14 +566,14 @@ local function find_feature(name)
 	    if not line then break end
 	    local key,fullname,lat,lon,size = line:match("^([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)%|([^|]+)")
 	    if key == lower_name then
-		   f.close()
+		   f:close()
 		   return tonumber(lat),tonumber(lon),fullname
 		end
 		if not partial_lat and key:sub(1,name_length) == lower_name then
 			partial_fullname,partial_lat,partial_lon,partial_size = fullname,lat,lon,size
 		end
     end
-	f.close()
+	f:close()
 	if partial_lat then
 		return tonumber(partial_lat),tonumber(partial_lon),partial_fullname
 	else
