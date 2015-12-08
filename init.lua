@@ -556,7 +556,7 @@ end)
 
 		
 local function find_feature(name)
-    local lower_name = name:lower():gsub("[^A-Za-z]", "")
+    local lower_name = name:lower():gsub("[^A-Za-z0-9]", "")
 	local name_length = lower_name:len()
     local f = assert(ie.io.open(mypath .. "features.txt", "r"))
 	local partial_fullname,partial_lat,partial_lon,partial_size

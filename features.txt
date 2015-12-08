@@ -332,13 +332,13 @@ apianusu|Apianus U|-27.91|8.93|16.82
 apianusv|Apianus V|-25.23|10.38|3.2
 apianusw|Apianus W|-25.62|7.42|9.68
 apianusx|Apianus X|-28.37|6.95|3.1
-apollo|Apollo 11|0.67408|23.47297|1
-apollo|Apollo 12|-3.01239|-23.42157|1
-apollo|Apollo 14|-3.64530|-17.47136|1
-apollo|Apollo 15|26.13222|3.63386|1
-apollo|Apollo 16|-8.97301|15.49812|1
-apollo|Apollo 17|20.19080|30.77168|1
 apollo|Apollo|-36.01|-151.48|524.23
+apollo11|Apollo 11|0.67408|23.47297|1
+apollo12|Apollo 12|-3.01239|-23.42157|1
+apollo14|Apollo 14|-3.64530|-17.47136|1
+apollo15|Apollo 15|26.13222|3.63386|1
+apollo16|Apollo 16|-8.97301|15.49812|1
+apollo17|Apollo 17|20.19080|30.77168|1
 apollonius|Apollonius|4.58|60.86|50.66
 apolloniusa|Apollonius A|4.83|56.83|24.55
 apolloniusb|Apollonius B|5.86|57.64|31.17
