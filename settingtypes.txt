@@ -1,0 +1,21 @@
+# Horizontal scale in meters per node (locked per world after creation).
+moon_mapgen_land_node_meters (Meters per land node) float 150 1 10000
+
+# Vertical height exaggeration multiplier (locked per world after creation).
+moon_mapgen_height_multiplier (Height multiplier) float 1 0.1 100
+
+# Gravity relative to Earth's gravity (Moon is 0.165).
+moon_mapgen_gravity (Gravity) float 0.165 0.01 10
+
+# Sky appearance: black, blue, or fancy (SpaceEngine skybox with Earth).
+moon_mapgen_sky (Sky mode) enum fancy black,blue,fancy
+
+# Map projection (locked per world after creation):
+# orthographic (fastest), equaldistance (better far from center), or sphere.
+moon_mapgen_projection (Projection mode) enum equaldistance equaldistance,orthographic,sphere
+
+# Teleport to the other side of the Moon when crossing the disc edge (ignored in sphere mode).
+moon_mapgen_teleport (Teleport across disc edge) bool true
+
+# Vary lunar surface brightness using NASA LROC albedo data.
+moon_mapgen_albedo (Use LROC albedo brightness) bool true
